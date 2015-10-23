@@ -1,20 +1,24 @@
 <?php if ( !defined('ABS_PATH') ) exit('ABS_PATH is not loaded. Direct access is not allowed.');
 
-/*
- * Copyright 2014 Osclass
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+    /*
+     *      Osclass – software for creating and publishing online classified
+     *                           advertising platforms
+     *
+     *                        Copyright (C) 2012 OSCLASS
+     *
+     *       This program is free software: you can redistribute it and/or
+     *     modify it under the terms of the GNU Affero General Public License
+     *     as published by the Free Software Foundation, either version 3 of
+     *            the License, or (at your option) any later version.
+     *
+     *     This program is distributed in the hope that it will be useful, but
+     *         WITHOUT ANY WARRANTY; without even the implied warranty of
+     *        MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+     *             GNU Affero General Public License for more details.
+     *
+     *      You should have received a copy of the GNU Affero General Public
+     * License along with this program.  If not, see <http://www.gnu.org/licenses/>.
+     */
 
     /**
      *
@@ -117,7 +121,7 @@
             if(!$expired) {
                 // t_item
                 $this->addItemConditions(sprintf("%st_item.b_enabled = 1 ", DB_TABLE_PREFIX));
-                $this->addItemConditions(sprintf("%st_item.b_active = 1 ", DB_TABLE_PREFIX));
+            //    $this->addItemConditions(sprintf("%st_item.b_active = 1 ", DB_TABLE_PREFIX));
                 $this->addItemConditions(sprintf("%st_item.b_spam = 0", DB_TABLE_PREFIX));
                 $this->addItemConditions(sprintf("(%st_item.b_premium = 1 || %st_item.dt_expiration >= '%s')", DB_TABLE_PREFIX, DB_TABLE_PREFIX, date('Y-m-d H:i:s')) );
             }
@@ -315,18 +319,44 @@
          * @param string $table
          */
         public function order($o_c = 'dt_pub_date', $o_d = 'DESC', $table = NULL)
-        {
-            if($table == '') {
-                $this->order_column = $o_c;
-            } else if($table != ''){
-                if( $table == '%st_user' ) {
-                    $this->order_column = sprintf("ISNULL($table.$o_c), $table.$o_c", DB_TABLE_PREFIX, DB_TABLE_PREFIX);
-                } else {
-                    $this->order_column = sprintf("$table.$o_c", DB_TABLE_PREFIX);
-                }
-            }
-            $this->order_direction = $o_d;
-        }
+		{
+if($table == '') {
+
+if((isset($_GET['sOrder']))AND($_GET['sOrder']=='i_price')){
+
+$this->order_column = $o_c.'*f_rate';
+
+}
+
+else
+
+$this->order_column = $o_c;
+
+} else if($table != ''){
+
+if( $table == '%st_user' ) {
+
+$this->order_column = sprintf("ISNULL($table.$o_c), $table.$o_c", DB_TABLE_PREFIX, DB_TABLE_PREFIX);
+
+} else {
+
+if((isset($_GET['sOrder']))AND($_GET['sOrder']=='i_price')){
+
+$this->order_column = sprintf("$table.$o_c*f_rate", DB_TABLE_PREFIX);
+
+}
+
+else
+
+$this->order_column = sprintf("$table.$o_c", DB_TABLE_PREFIX);
+
+}
+
+}
+
+$this->order_direction = $o_d;
+
+}
 
         /**
          * Limit the results of the search
@@ -703,6 +733,7 @@
 
                 $category  = $category['pk_i_id'];
             }
+
             $tree = Category::newInstance()->toSubTree($category);
             if( !in_array($category, $this->categories) ) {
                 $this->categories[] = $category;
@@ -786,83 +817,91 @@
          *
          * @param type $num
          */
-        private function _makeSQLPremium($num = 2)
-        {
-            if ($this->withPattern ) {
-                // sub select for JOIN ----------------------
-                $this->dao->select('distinct d.fk_i_item_id');
-                $this->dao->from(DB_TABLE_PREFIX . 't_item_description as d');
-                $this->dao->from(DB_TABLE_PREFIX . 't_item as ti');
-                $this->dao->where('ti.pk_i_id = d.fk_i_item_id');
-                $this->dao->where(sprintf("MATCH(d.s_title, d.s_description) AGAINST('%s' IN BOOLEAN MODE)", $this->sPattern));
-                $this->dao->where("ti.b_premium = 1");
+        
+private function _makeSQLPremium($num = 2) {
+        $arrayConditions = $this->_conditions();
+        $extraFields = $arrayConditions['extraFields'];
+        $conditionsSQL = $arrayConditions['conditionsSQL'];
+        $p_b_active = Params::getParam('b_active');
 
-                if(empty($this->locale_code)) {
-                    if(OC_ADMIN) {
-                        $this->locale_code[osc_current_admin_locale()] = osc_current_admin_locale();
-                    } else {
-                        $this->locale_code[osc_current_user_locale()] = osc_current_user_locale();
-                    }
+        if ($this->withPattern) {
+            // sub select for JOIN ----------------------
+            $this->dao->select('distinct d.fk_i_item_id');
+            $this->dao->from(DB_TABLE_PREFIX . 't_item_description as d');
+            $this->dao->where(sprintf("MATCH(d.s_title, d.s_description) AGAINST('%s' IN BOOLEAN MODE)", $this->sPattern));
+
+            if (empty($this->locale_code)) {
+                if (OC_ADMIN) {
+                    $this->locale_code[osc_current_admin_locale()] = osc_current_admin_locale();
+                } else {
+                    $this->locale_code[osc_current_user_locale()] = osc_current_user_locale();
                 }
-                $this->dao->where(sprintf("( d.fk_c_locale_code LIKE '%s' )", implode("' d.fk_c_locale_code LIKE '", $this->locale_code)));
+            }
+            // $this->dao->where(sprintf("( d.fk_c_locale_code LIKE '%s' )", implode("' d.fk_c_locale_code LIKE '", $this->locale_code)));
 
-                $subSelect = $this->dao->_getSelect();
-                $this->dao->_resetSelect();
-                // END sub select ----------------------
-                $this->dao->select(DB_TABLE_PREFIX.'t_item.*, '.DB_TABLE_PREFIX.'t_item.s_contact_name as s_user_name');
-                $this->dao->from( DB_TABLE_PREFIX.'t_item' );
-                $this->dao->from(sprintf('%st_item_stats', DB_TABLE_PREFIX));
-                $this->dao->where(sprintf('%st_item_stats.fk_i_item_id = %st_item.pk_i_id', DB_TABLE_PREFIX, DB_TABLE_PREFIX));
-                $this->dao->where(sprintf("%st_item.b_premium = 1", DB_TABLE_PREFIX));
-                $this->dao->where(sprintf("%st_item.b_enabled = 1 ", DB_TABLE_PREFIX));
+            $subSelect = $this->dao->_getSelect();
+            $this->dao->_resetSelect();
+            // END sub select ----------------------
+            $this->dao->select(DB_TABLE_PREFIX . 't_item.*, ' . DB_TABLE_PREFIX . 't_item.s_contact_name as s_user_name');
+            $this->dao->from(DB_TABLE_PREFIX . 't_item');
+            $this->dao->from(sprintf('%st_item_stats', DB_TABLE_PREFIX));
+            $this->dao->where(sprintf('%st_item_stats.fk_i_item_id = %st_item.pk_i_id', DB_TABLE_PREFIX, DB_TABLE_PREFIX));
+            $this->dao->where(sprintf("%st_item.b_premium = 1", DB_TABLE_PREFIX));
+            $this->dao->where(sprintf("%st_item.b_enabled = 1 ", DB_TABLE_PREFIX));
+            if ($p_b_active)
                 $this->dao->where(sprintf("%st_item.b_active = 1 ", DB_TABLE_PREFIX));
-                $this->dao->where(sprintf("%st_item.b_spam = 0", DB_TABLE_PREFIX));
+            $this->dao->where(sprintf("%st_item.b_spam = 0", DB_TABLE_PREFIX));
 
 
-                if($this->withLocations || OC_ADMIN) {
-                    $this->dao->join(sprintf('%st_item_location', DB_TABLE_PREFIX), sprintf('%st_item_location.fk_i_item_id = %st_item.pk_i_id', DB_TABLE_PREFIX, DB_TABLE_PREFIX), 'LEFT');
-                    $this->_addLocations();
-                }
-                if($this->withCategoryId && (count($this->categories) > 0)) {
-                    $this->dao->where(sprintf("%st_item.fk_i_category_id", DB_TABLE_PREFIX) .' IN ('. implode(', ', $this->categories) .')' );
-                }
-                $this->dao->where(DB_TABLE_PREFIX.'t_item.pk_i_id IN ('.$subSelect.')');
+            if ($this->withLocations || OC_ADMIN) {
+                $this->dao->join(sprintf('%st_item_location', DB_TABLE_PREFIX), sprintf('%st_item_location.fk_i_item_id = %st_item.pk_i_id', DB_TABLE_PREFIX, DB_TABLE_PREFIX), 'LEFT');
+                $this->_addLocations();
+            }
+            if ($this->withCategoryId && (count($this->categories) > 0)) {
+                $this->dao->where(sprintf("%st_item.fk_i_category_id", DB_TABLE_PREFIX) . ' IN (' . implode(', ', $this->categories) . ')');
+            }
+            $this->dao->where(DB_TABLE_PREFIX . 't_item.pk_i_id IN (' . $subSelect . ')');
 
-                $this->dao->groupBy(DB_TABLE_PREFIX.'t_item.pk_i_id');
-                $this->dao->orderBy(sprintf('SUM(%st_item_stats.i_num_premium_views)', DB_TABLE_PREFIX), 'ASC');
-                $this->dao->orderBy(null, 'random');
-                $this->dao->limit(0, $num);
-            } else {
-                $this->dao->select(DB_TABLE_PREFIX.'t_item.*, '.DB_TABLE_PREFIX.'t_item.s_contact_name as s_user_name');
-                $this->dao->from( DB_TABLE_PREFIX.'t_item' );
-                $this->dao->from(sprintf('%st_item_stats', DB_TABLE_PREFIX));
-                $this->dao->where(sprintf('%st_item_stats.fk_i_item_id = %st_item.pk_i_id', DB_TABLE_PREFIX, DB_TABLE_PREFIX));
-                $this->dao->where(sprintf("%st_item.b_premium = 1", DB_TABLE_PREFIX));
-                $this->dao->where(sprintf("%st_item.b_enabled = 1 ", DB_TABLE_PREFIX));
+            $this->dao->groupBy(DB_TABLE_PREFIX . 't_item.pk_i_id');
+            $this->dao->orderBy(sprintf('%st_item_stats.i_num_premium_views', DB_TABLE_PREFIX), 'ASC');
+            $this->dao->orderBy(null, 'random');
+            $this->dao->limit(0, $num);
+        } else {
+            $this->dao->select(DB_TABLE_PREFIX . 't_item.*, ' . DB_TABLE_PREFIX . 't_item.s_contact_name as s_user_name');
+            $this->dao->from(DB_TABLE_PREFIX . 't_item');
+            $this->dao->from(sprintf('%st_item_stats', DB_TABLE_PREFIX));
+            $this->dao->where(sprintf('%st_item_stats.fk_i_item_id = %st_item.pk_i_id', DB_TABLE_PREFIX, DB_TABLE_PREFIX));
+            $this->dao->where(sprintf("%st_item.b_premium = 1", DB_TABLE_PREFIX));
+            $this->dao->where(sprintf("%st_item.b_enabled = 1 ", DB_TABLE_PREFIX));
+            if ($p_b_active)
                 $this->dao->where(sprintf("%st_item.b_active = 1 ", DB_TABLE_PREFIX));
-                $this->dao->where(sprintf("%st_item.b_spam = 0", DB_TABLE_PREFIX));
+            $this->dao->where(sprintf("%st_item.b_spam = 0", DB_TABLE_PREFIX));
 
-                if($this->withLocations || OC_ADMIN) {
-                    $this->dao->join(sprintf('%st_item_location', DB_TABLE_PREFIX), sprintf('%st_item_location.fk_i_item_id = %st_item.pk_i_id', DB_TABLE_PREFIX, DB_TABLE_PREFIX), 'LEFT');
-                    $this->_addLocations();
-                }
-                if( $this->withCategoryId && (count($this->categories) > 0) ) {
-                    $this->dao->where(sprintf("%st_item.fk_i_category_id", DB_TABLE_PREFIX) .' IN ('. implode(', ', $this->categories) .')' );
-                }
-
-                $this->dao->groupBy(DB_TABLE_PREFIX.'t_item.pk_i_id');
-                $this->dao->orderBy(sprintf('SUM(%st_item_stats.i_num_premium_views)', DB_TABLE_PREFIX), 'ASC');
-                $this->dao->orderBy(null, 'random');
-                $this->dao->limit(0, $num);
+            if ($this->withLocations || OC_ADMIN) {
+                $this->dao->join(sprintf('%st_item_location', DB_TABLE_PREFIX), sprintf('%st_item_location.fk_i_item_id = %st_item.pk_i_id', DB_TABLE_PREFIX, DB_TABLE_PREFIX), 'LEFT');
+                $this->_addLocations();
+            }
+            if ($this->withCategoryId && (count($this->categories) > 0)) {
+                $this->dao->where(sprintf("%st_item.fk_i_category_id", DB_TABLE_PREFIX) . ' IN (' . implode(', ', $this->categories) . ')');
             }
 
-            $sql = $this->dao->_getSelect();
-            // reset dao attributes
-            $this->dao->_resetSelect();
-
-            return $sql;
+            $this->dao->groupBy(DB_TABLE_PREFIX . 't_item.pk_i_id');
+            $this->dao->orderBy(sprintf('%st_item_stats.i_num_premium_views', DB_TABLE_PREFIX), 'ASC');
+            $this->dao->orderBy(null, 'random');
+            $this->dao->limit(0, $num);
+        }
+        // WHERE PLUGINS extra conditions
+        if (count($this->conditions) > 0) {
+            $this->dao->where($conditionsSQL);
         }
 
+        $sql = $this->dao->_getSelect();
+        // reset dao attributes
+        $this->dao->_resetSelect();
+
+        return $sql;
+    }
+	
         private function _addLocations()
         {
             if(count($this->city_areas)>0) {
@@ -915,7 +954,16 @@
 
                 if ($this->withPattern ) {
                     $this->dao->join(DB_TABLE_PREFIX.'t_item_description as d','d.fk_i_item_id = '.DB_TABLE_PREFIX.'t_item.pk_i_id','LEFT');
-                    $this->dao->where(sprintf("MATCH(d.s_title, d.s_description) AGAINST('%s' IN BOOLEAN MODE)", $this->sPattern) );
+                
+                   if (isset($_GET['stype'])AND($_GET['stype']=='on'))
+                   $this->dao->where(sprintf("MATCH(d.s_title, d.s_description) AGAINST('%s' IN BOOLEAN MODE)", $this->sPattern) );
+                   else
+                   {
+                    $sting=" d.s_title LIKE '% ".$this->sPattern." %' ";
+                  
+                   $this->dao->where( $sting);
+               
+                   }
                     if(empty($this->locale_code)) {
                         if(OC_ADMIN) {
                             $this->locale_code[osc_current_admin_locale()] = osc_current_admin_locale();
@@ -923,7 +971,7 @@
                             $this->locale_code[osc_current_user_locale()] = osc_current_user_locale();
                         }
                     }
-                    $this->dao->where(sprintf("( d.fk_c_locale_code LIKE '%s' )", implode("' d.fk_c_locale_code LIKE '", $this->locale_code)));
+               //     $this->dao->where(sprintf("( d.fk_c_locale_code LIKE '%s' )", implode("' d.fk_c_locale_code LIKE '", $this->locale_code)));
                 }
 
                 // item conditions
@@ -947,8 +995,18 @@
                     $this->dao->groupBy(DB_TABLE_PREFIX.'t_item.pk_i_id');
                 }
                 if($this->onlyPremium) {
-                    $this->dao->where(sprintf("%st_item.b_premium = 1", DB_TABLE_PREFIX));
-                }
+
+$this->dao->where(sprintf("%st_item.b_premium = 1", DB_TABLE_PREFIX));
+
+}
+
+if((isset($_GET['sOrder']))AND($_GET['sOrder']=='i_price')){
+
+$this->dao->join(DB_TABLE_PREFIX.'t_multicurrency as c',DB_TABLE_PREFIX.'t_item.fk_c_currency_code = c.s_from','LEFT');
+
+$this->dao->where("c.s_to = 'RUB' ");
+
+}
                 $this->_priceRange();
 
                 // add joinTables
@@ -978,7 +1036,7 @@
                 $this->dao->orderBy( $this->order_column, $this->order_direction);
 
                 if($count) {
-                    $this->dao->limit(100*$this->results_per_page);
+                    $this->dao->limit(10000*$this->results_per_page);
                 } else {
                     $this->dao->limit( $this->limit_init, $this->results_per_page);
                 }
@@ -1102,35 +1160,26 @@
          */
         public function getLatestItems($numItems = 10, $options = array(), $withPicture = false)
         {
-            $key = md5(osc_base_url().(string)$numItems.json_encode($options).(string)$withPicture);
-            $found  = null;
-            $latestItems = osc_cache_get($key, $found);
-            if($latestItems===false) {
-                $this->set_rpp($numItems);
-                if($withPicture) {
-                    $this->withPicture(true);
-                }
-                if(isset($options['sCategory'])) {
-                    $this->addCategory($options['sCategory']);
-                }
-                if(isset($options['sCountry'])) {
-                    $this->addCountry($options['sCountry']);
-                }
-                if(isset($options['sRegion'])) {
-                    $this->addRegion($options['sRegion']);
-                }
-                if(isset($options['sCity'])) {
-                    $this->addCity($options['sCity']);
-                }
-                if(isset($options['sUser'])) {
-                    $this->fromUser($options['sUser']);
-                }
-                $return = $this->doSearch();
-                osc_cache_set($key, $return, OSC_CACHE_TTL);
-                return $return;
-            } else {
-                return $latestItems;
+            $this->set_rpp($numItems);
+            if($withPicture) {
+                $this->withPicture(true);
             }
+            if(isset($options['sCategory'])) {
+                $this->addCategory($options['sCategory']);
+            }
+            if(isset($options['sCountry'])) {
+                $this->addCountry($options['sCountry']);
+            }
+            if(isset($options['sRegion'])) {
+                $this->addRegion($options['sRegion']);
+            }
+            if(isset($options['sCity'])) {
+                $this->addCity($options['sCity']);
+            }
+            if(isset($options['sUser'])) {
+                $this->fromUser($options['sUser']);
+            }
+            return $this->doSearch();
         }
 
         /**
@@ -1206,7 +1255,7 @@
             $this->dao->from(DB_TABLE_PREFIX.'t_item, '.DB_TABLE_PREFIX.'t_item_location, '.DB_TABLE_PREFIX.'t_category, '.DB_TABLE_PREFIX.'t_country');
             $this->dao->where(DB_TABLE_PREFIX.'t_item.pk_i_id = '.DB_TABLE_PREFIX.'t_item_location.fk_i_item_id');
             $this->dao->where(DB_TABLE_PREFIX.'t_item.b_enabled = 1');
-            $this->dao->where(DB_TABLE_PREFIX.'t_item.b_active = 1');
+           // $this->dao->where(DB_TABLE_PREFIX.'t_item.b_active = 1');
             $this->dao->where(DB_TABLE_PREFIX.'t_item.b_spam = 0');
             $this->dao->where(DB_TABLE_PREFIX.'t_category.b_enabled = 1');
             $this->dao->where(DB_TABLE_PREFIX.'t_category.pk_i_id = '.DB_TABLE_PREFIX.'t_item.fk_i_category_id');
